@@ -8,7 +8,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from scipy.stats import multivariate_normal
 from scipy.optimize import linear_sum_assignment
 
-from load_fomation import load_formations
+from utils.load_formation import load_formations
 
 def mmss_to_sec(mmss):
     """
@@ -73,43 +73,43 @@ def standardize_pos(pos):
     return pos_std
 
 def load_dataset(match, start, end):
-        """
-        1. load dataset and pre-processing
-        2. make the list of player id
+    """
+    1. load dataset and pre-processing
+    2. make the list of player id
+    
+    Args:
+        match (str) : the path to the csv file of the match
+        start (float) : the start time of the part (mm:ss)
+        end (float) : the end time of the part (mm:ss)
         
-        Args:
-            match (str) : the path to the csv file of the match
-            start (float) : the start time of the part (mm:ss)
-            end (float) : the end time of the part (mm:ss)
-            
-        Returns:
-            pos (np.ndarray, shape (sample_num, 10, 2)) : the coordinates of the field players after pre-processing
-            numbers (list) : the list of player id
-        """
+    Returns:
+        pos (np.ndarray, shape (sample_num, 10, 2)) : the coordinates of the field players after pre-processing
+        player_ids (list) : the list of player id
+    """
+    
+    # read the dataset and set the index
+    #path = os.path.join()
+    data = pd.read_csv(r'C:\Users\raye4\OneDrive\github\classify-football-formation\data\input\processed\prepped_tromso_stromsgodset_first.csv')
+    
+    # start and end time of the segment
+    start = mmss_to_sec(start)
+    end = mmss_to_sec(end)
+
+    # extract data of the segment
+    data = data[(start<=data['timestamp']) & (data['timestamp']<=end)]
+
+    # the coordinates of the field players
+    player_ids = data['tag_id'].unique()
+    frame_num = len(data) // 10
+    pos = np.zeros((frame_num, 10, 2))
+    for i, player_id in enumerate(player_ids):
+        pos[:, i] = data[data['tag_id']==player_id][['x_pos', 'y_pos']].values
+
+    # standardize the position of all players in each frame
+    for f in range(frame_num):
+        pos[f] = standardize_pos(pos[f])
         
-        # read the dataset and set the index
-        path = os.path.join('../data/input/processed/', match)
-        data = pd.read_csv(path)
-        
-        # start and end time of the segment
-        start = mmss_to_sec(start)
-        end = mmss_to_sec(end)
-
-        # extract data of the segment
-        data = data[(start<=data['timestamp']) & (data['timestamp']<=end)]
-
-        # the coordinates of the field players
-        player_ids = data['tag_id'].unique()
-        frame_num = len(data) // 10
-        pos = np.zeros((frame_num, 10, 2))
-        for i, player_id in enumerate(player_ids):
-            pos[:, i] = data[data['tag_id']==player_id][['x_pos', 'y_pos']].values
-
-        # standardize the position of all players in each frame
-        for f in range(frame_num):
-            pos[f] = standardize_pos(pos[f])
-            
-        return pos, player_ids
+    return pos, player_ids
 
 def compute_similarity(form1, form2):
     """
@@ -125,7 +125,7 @@ def compute_similarity(form1, form2):
     
     # min-max scaling
     # x: 0.0~1.0
-    #  y: 0.0~0.7
+    # y: 0.0~0.7
     form1 = scale_pos(form1)
     form2 = scale_pos(form2)
     
@@ -253,8 +253,8 @@ class FormationClassification:
                 axes[0].scatter(self.form_summary[i, 0], self.form_summary[i, 1], color="green")
                 
         # annotate the role labels
-        for role, (x, y) in enumerate(self.form_summary):
-            axes[0].annotate(self.roles[role], (x+.03, y*.03))
+        for i, (x, y) in enumerate(self.form_summary):
+            axes[0].annotate(self.roles[i], (x+.01, y+.01))
             
         # show the similarity toward top 5 formation
         for i in range(5):
